@@ -1,7 +1,7 @@
 import express from 'express';
-import contactServices from '../../models/contacts.js';
+// import contactServices from '../../models/contacts.js';
 import Joi from 'joi';
-
+import Contact from '../../models/Contact.js';
 const contactsRouter = express.Router();
 
 const contactAddSchema = Joi.object({
@@ -17,11 +17,12 @@ const contactAddSchema = Joi.object({
       'string.pattern.base': `Phone number must have 10 digits.(For example: 0501234567)`,
     })
     .required(),
+  favorite: Joi.boolean(),
 });
 
 contactsRouter.get('/', async (req, res, next) => {
   try {
-    const result = await contactServices.listContacts();
+    const result = await Contact.find();
     res.json(result);
   } catch (error) {
     next(error);
@@ -31,7 +32,7 @@ contactsRouter.get('/', async (req, res, next) => {
 contactsRouter.get('/:contactId', async (req, res, next) => {
   try {
     const { contactId } = req.params;
-    const result = await contactServices.getContactById(contactId);
+    const result = await Contact.findOne({ _id: contactId });
     if (!result) {
       return res.status(404).json({ message: `Movie with id=${contactId} not found` });
     }
@@ -48,8 +49,8 @@ contactsRouter.post('/', async (req, res, next) => {
       return res.status(400).json({ message: error.message });
     }
     const { name, phone, email } = req.body;
-    const result = await contactServices.addContact({ name, email, phone });
-    res.json(result);
+    const result = await Contact.create(req.body);
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }
@@ -59,7 +60,7 @@ contactsRouter.delete('/:contactId', async (req, res, next) => {
   try {
     const { contactId } = req.params;
 
-    const result = await contactServices.removeContact(contactId);
+    const result = await Contact.findByIdAndRemove({ _id: contactId });
     res.json(result);
   } catch (error) {
     next(error);
@@ -72,10 +73,36 @@ contactsRouter.put('/:id', async (req, res, next) => {
     if (error) {
       return res.status(400).json({ message: error.message });
     }
-    const { name, phone, email } = req.body;
+    const { name, phone, email, favorite } = req.body;
     const { id } = req.params;
 
-    const result = await contactServices.updateContact(id, { name, phone, email });
+    const result = await Contact.findByIdAndUpdate(
+      { _id: id },
+      { name, phone, email, favorite },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: `Movies with id=${id} not found` });
+    }
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+contactsRouter.patch('/:id/favorite', async (req, res, next) => {
+  try {
+    // const { error } = contactAddSchema.validate(req.body);
+    // if (error) {
+    //   return res.status(400).json({ message: error.message });
+    // }
+    const { favorite } = req.body;
+    const { id } = req.params;
+    if (favorite) {
+      return res.status(400).json({ message: 'missing field favorite' });
+    }
+    const result = await Contact.findByIdAndUpdate({ _id: id }, { favorite }, { new: true });
 
     if (!result) {
       return res.status(404).json({ message: `Movies with id=${id} not found` });
