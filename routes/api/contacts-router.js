@@ -20,6 +20,10 @@ const contactAddSchema = Joi.object({
   favorite: Joi.boolean(),
 });
 
+const contactUpdateSchema = Joi.object({
+  favorite: Joi.boolean().required(),
+});
+
 contactsRouter.get('/', async (req, res, next) => {
   try {
     const result = await Contact.find();
@@ -93,17 +97,12 @@ contactsRouter.put('/:id', async (req, res, next) => {
 
 contactsRouter.patch('/:id/favorite', async (req, res, next) => {
   try {
-    // const { error } = contactAddSchema.validate(req.body);
-    // if (error) {
-    //   return res.status(400).json({ message: error.message });
-    // }
-    const { favorite } = req.body;
-    const { id } = req.params;
-    if (favorite) {
-      return res.status(400).json({ message: 'missing field favorite' });
+    if (req.body.error) {
+      return res.status(400).json({ message: error.message });
     }
-    const result = await Contact.findByIdAndUpdate({ _id: id }, { favorite }, { new: true });
+    const { id } = req.params;
 
+    const result = await Contact.findByIdAndUpdate(id, req.body, { new: true });
     if (!result) {
       return res.status(404).json({ message: `Movies with id=${id} not found` });
     }
