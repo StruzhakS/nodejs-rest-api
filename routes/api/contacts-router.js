@@ -1,7 +1,8 @@
 import express from 'express';
-// import contactServices from '../../models/contacts.js';
 import Joi from 'joi';
 import Contact from '../../models/Contact.js';
+import authenticate from '../../middlewares/authenticate.js';
+
 const contactsRouter = express.Router();
 
 const contactAddSchema = Joi.object({
@@ -24,9 +25,17 @@ const contactUpdateSchema = Joi.object({
   favorite: Joi.boolean().required(),
 });
 
+contactsRouter.use(authenticate);
+
 contactsRouter.get('/', async (req, res, next) => {
   try {
-    const result = await Contact.find();
+    const { _id: owner } = req.user;
+    const { page, limit } = req.query;
+    const skip = (page - 1) * limit;
+    const result = await Contact.find({ owner }, '-createdAt -updatedAt', { skip, limit }).populate(
+      'owner',
+      'email'
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -52,8 +61,9 @@ contactsRouter.post('/', async (req, res, next) => {
     if (error) {
       return res.status(400).json({ message: error.message });
     }
+    const { _id: owner } = req.user;
     const { name, phone, email } = req.body;
-    const result = await Contact.create(req.body);
+    const result = await Contact.create({ ...req.body, owner });
     res.status(201).json(result);
   } catch (error) {
     next(error);
