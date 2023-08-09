@@ -22,6 +22,9 @@ const contactSchema = new Schema(
       ref: 'user',
       required: true,
     },
+    // avatarURL: {
+    //   type: String,
+    // },
   },
   { versionKey: false, timestamps: true }
 );

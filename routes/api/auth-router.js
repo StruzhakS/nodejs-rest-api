@@ -6,9 +6,15 @@ import User from '../../models/User.js';
 import bcrypt from 'bcryptjs';
 import { userSigninSchema, userSignupSchema } from '../../schemas/users-schmas.js';
 import HttpError from '../../helpers/HttpError.js';
+import gravatar from 'gravatar';
+import upload from '../../middlewares/upload.js';
+import path from 'path';
+import fs from 'fs/promises';
 
 const authRouter = express.Router();
 dotenv.config();
+
+const avatarPath = path.resolve('public', 'avatars');
 
 const { JWT_SECRET } = process.env;
 authRouter.post('/signup', async (req, res, next) => {
@@ -23,8 +29,9 @@ authRouter.post('/signup', async (req, res, next) => {
       res.status(409).json({ message: `Email in use` });
     }
     const hashPasswword = await bcrypt.hash(password, 10);
+    const avatarURL = gravatar.url(email);
 
-    const newUser = await User.create({ ...req.body, password: hashPasswword });
+    const newUser = await User.create({ ...req.body, password: hashPasswword, avatarURL });
     res.status(201).json({
       email: newUser.email,
       subscription: newUser.subscription,
@@ -74,4 +81,13 @@ authRouter.post('/signout', authenticate, async (req, res) => {
   res.json({ message: 'Signout success' });
 });
 
+authRouter.patch('/avatars', authenticate, upload.single('avatar'), async (req, res) => {
+  const { path: oldPath, filename } = req.file;
+  const { _id } = req.user;
+  const newPath = path.join(avatarPath, filename);
+  await fs.rename(oldPath, newPath);
+  const avatarURL = path.join('public', 'avatars', filename);
+  await User.findByIdAndUpdate(_id, { avatarURL });
+  res.json({ avatarURL });
+});
 export default authRouter;
