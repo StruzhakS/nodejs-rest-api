@@ -2,8 +2,13 @@ import express from 'express';
 import Joi from 'joi';
 import Contact from '../../models/Contact.js';
 import authenticate from '../../middlewares/authenticate.js';
+import upload from '../../middlewares/upload.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 const contactsRouter = express.Router();
+
+const avatarPath = path.resolve('public', 'avatars');
 
 const contactAddSchema = Joi.object({
   name: Joi.string().min(3).max(11).required().messages({
@@ -19,6 +24,7 @@ const contactAddSchema = Joi.object({
     })
     .required(),
   favorite: Joi.boolean(),
+  // avatarURL: Joi.string(),
 });
 
 const contactUpdateSchema = Joi.object({
@@ -55,15 +61,19 @@ contactsRouter.get('/:contactId', async (req, res, next) => {
   }
 });
 
-contactsRouter.post('/', async (req, res, next) => {
+contactsRouter.post('/', upload.single('avatarURL'), async (req, res, next) => {
   try {
     const { error } = contactAddSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.message });
     }
     const { _id: owner } = req.user;
-    const { name, phone, email } = req.body;
-    const result = await Contact.create({ ...req.body, owner });
+    const { path: oldPath, filename } = req.file;
+
+    const newPath = path.join(avatarPath, filename);
+    await fs.rename(oldPath, newPath);
+    const avatarURL = path.join('public', 'avatars', filename);
+    const result = await Contact.create({ ...req.body, avatarURL, owner });
     res.status(201).json(result);
   } catch (error) {
     next(error);
