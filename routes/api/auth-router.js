@@ -5,11 +5,12 @@ import authenticate from '../../middlewares/authenticate.js';
 import User from '../../models/User.js';
 import bcrypt from 'bcryptjs';
 import { userSigninSchema, userSignupSchema } from '../../schemas/users-schmas.js';
-import HttpError from '../../helpers/HttpError.js';
 import gravatar from 'gravatar';
 import upload from '../../middlewares/upload.js';
 import path from 'path';
 import fs from 'fs/promises';
+import Jimp from 'jimp';
+import HttpError from '../../helpers/HttpError.js';
 
 const authRouter = express.Router();
 dotenv.config();
@@ -87,6 +88,10 @@ authRouter.patch('/avatars', authenticate, upload.single('avatar'), async (req, 
   const newPath = path.join(avatarPath, filename);
   await fs.rename(oldPath, newPath);
   const avatarURL = path.join('public', 'avatars', filename);
+
+  const image = await Jimp.read(avatarURL);
+  const resizeImage = image.resize(250, 250).write(`resizeImg`);
+
   await User.findByIdAndUpdate(_id, { avatarURL });
   res.json({ avatarURL });
 });

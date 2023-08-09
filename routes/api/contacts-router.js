@@ -24,7 +24,6 @@ const contactAddSchema = Joi.object({
     })
     .required(),
   favorite: Joi.boolean(),
-  // avatarURL: Joi.string(),
 });
 
 const contactUpdateSchema = Joi.object({
