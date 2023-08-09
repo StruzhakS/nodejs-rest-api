@@ -89,8 +89,8 @@ authRouter.patch('/avatars', authenticate, upload.single('avatar'), async (req, 
   await fs.rename(oldPath, newPath);
   const avatarURL = path.join('public', 'avatars', filename);
 
-  const image = await Jimp.read(avatarURL);
-  const resizeImage = image.resize(250, 250).write(`resizeImg`);
+  // const image = await Jimp.read(avatarURL);
+  // const resizeImage = image.resize(250, 250).write(`resizeImg.png`);
 
   await User.findByIdAndUpdate(_id, { avatarURL });
   res.json({ avatarURL });
