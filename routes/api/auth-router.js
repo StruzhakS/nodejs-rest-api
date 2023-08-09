@@ -11,13 +11,16 @@ import path from 'path';
 import fs from 'fs/promises';
 import Jimp from 'jimp';
 import HttpError from '../../helpers/HttpError.js';
+import { sendEmail } from '../../helpers/sendEmail.js';
+import { nanoid } from 'nanoid';
 
 const authRouter = express.Router();
 dotenv.config();
 
 const avatarPath = path.resolve('public', 'avatars');
 
-const { JWT_SECRET } = process.env;
+const { JWT_SECRET, BASE_URL } = process.env;
+
 authRouter.post('/signup', async (req, res, next) => {
   try {
     const { error } = userSignupSchema.validate(req.body);
@@ -32,7 +35,23 @@ authRouter.post('/signup', async (req, res, next) => {
     const hashPasswword = await bcrypt.hash(password, 10);
     const avatarURL = gravatar.url(email);
 
-    const newUser = await User.create({ ...req.body, password: hashPasswword, avatarURL });
+    const verificationCode = nanoid();
+
+    const newUser = await User.create({
+      ...req.body,
+      password: hashPasswword,
+      avatarURL,
+      verificationCode,
+    });
+
+    const verifyEmail = {
+      to: email,
+      subject: 'Verification email',
+      html: `<a href="${BASE_URL}/api/auth/verify/${verificationCode}" target="_blanc">Click to verify email</a>`,
+    };
+
+    await sendEmail(verifyEmail);
+
     res.status(201).json({
       email: newUser.email,
       subscription: newUser.subscription,
@@ -40,6 +59,41 @@ authRouter.post('/signup', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+authRouter.get('/verify/:verificationCode', async (req, res) => {
+  const { verificationCode } = req.params;
+  const user = await User.findOne({ verificationCode });
+  if (!user) {
+    res.status(400).json({ message: `Invalid code` });
+  }
+  await User.findByIdAndUpdate(user._id, { verify: true, verificationCode: '' });
+  res.json({
+    message: 'Verify success',
+  });
+});
+
+authRouter.post('/verify', async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(400).json({ message: `Invalid email` });
+  }
+  if (user.verify) {
+    res.status(400).json({ message: `Email already verify` });
+  }
+
+  const verifyEmail = {
+    to: email,
+    subject: 'Verification email',
+    html: `<a href="${BASE_URL}/api/auth/verify/${user.verificationCode}" target="_blanc">Click to verify email</a>`,
+  };
+
+  await sendEmail(verifyEmail);
+
+  res.json({
+    message: 'Email resend',
+  });
 });
 
 authRouter.post('/signin', async (req, res, next) => {
@@ -52,6 +106,10 @@ authRouter.post('/signin', async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) {
       res.status(401).json({ message: `Email or password invalid` });
+    }
+
+    if (!user.verify) {
+      res.status(401).json({ message: `Email not verify` });
     }
     const passwordCompare = await bcrypt.compare(password, user.password);
     if (!passwordCompare) {
@@ -95,4 +153,5 @@ authRouter.patch('/avatars', authenticate, upload.single('avatar'), async (req, 
   await User.findByIdAndUpdate(_id, { avatarURL });
   res.json({ avatarURL });
 });
+
 export default authRouter;
